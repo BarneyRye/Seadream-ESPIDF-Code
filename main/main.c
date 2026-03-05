@@ -84,9 +84,9 @@ void sensor_task(void *pvParameters){
     while(1){
         for (uint8_t i = 0; i<BUFFER_SIZE; i++) {
             lsm6dso32_getEvent(lsm6dso32_dev_handle, &sensor_buffer[i]);
-            if (i == 0) {
+            if (i == 0 || i == 8) {
                 bmp280_getEvent(bmp280_dev_handle, &sensor_buffer[i]);
-                for (uint8_t j = 1; j < BUFFER_SIZE; j++) {
+                for (uint8_t j = 1; j < 8; j++) {
                     sensor_buffer[i+j].pressure = sensor_buffer[i].pressure;
                     sensor_buffer[i+j].temperature = sensor_buffer[i].temperature;
                 }
