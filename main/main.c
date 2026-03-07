@@ -41,10 +41,10 @@ i2c_master_dev_handle_t bmp280_dev_handle;
 i2c_master_dev_handle_t lsm6dso32_dev_handle;
 
 /* Buffer size for sensor data logging and calib structure*/
-#define BUFFER_SIZE (512/sizeof(sensor_data_t))
+#define BUFFER_SIZE (512/sizeof(sensor_data_t)) // 512/32 = 16, to fit SD RAM buffer size
 bmp280_calib_data_t bmp280_calib_data;
 
-/* SD card structure */
+/* SD card struc and filename */
 char filename[32];
 sdmmc_card_t *card;
 
@@ -61,6 +61,10 @@ void logging_task(void *pvParameters);
 
 /* Main application entry point */
 void app_main(void){
+    /*
+    Initializes I2C, SD card, sensors, and creates FreeRTOS tasks for sensor reading and SD logging
+    Also stores BMP280 calibration data to SD card and gets next available filename for logging
+    */
     i2c_init();
 
     bmp280_init(bmp280_dev_handle, &bmp280_calib_data);
@@ -79,6 +83,10 @@ void app_main(void){
 
 /* FreeRTOS Tasks */
 void sensor_task(void *pvParameters){
+    /*
+    Sensor task to read data and send over queue
+    Also handles BMP280 data reading for the first buffer element
+    */
     uint32_t lognum = 0;
     static sensor_data_t sensor_buffer[BUFFER_SIZE];
     while(1){
@@ -99,6 +107,10 @@ void sensor_task(void *pvParameters){
 }
 
 void logging_task(void *pvParameters){
+    /*
+    Logging task to write sensor data from queue to SD card
+    Also handles periodic syncing to ensure data integrity
+    */
     FILE *f = fopen(filename, "wb");
     if (f == NULL) {
         vTaskDelete(NULL);
@@ -120,6 +132,7 @@ void logging_task(void *pvParameters){
 
 /* Helper functions */
 void i2c_init(){
+    /* Initializes I2C master bus and adds BMP280 and LSM6DSO32 devices */
     i2c_master_bus_config_t i2c_config = {
         .clk_source = I2C_CLK_SRC_DEFAULT,
         .i2c_port = I2C_MASTER_NUM,
@@ -146,6 +159,7 @@ void i2c_init(){
 }
 
 void sd_card_init(){
+    /* Initializes SD card and mounts filesystem */
     esp_err_t ret;
     esp_vfs_fat_sdmmc_mount_config_t mount_config = {
         .format_if_mount_failed = true,
@@ -173,6 +187,7 @@ void sd_card_init(){
 }
 
 void getNextFilename(char *filename, char *calib_filename){
+    /* Gets the next available filename for logging and calibration data */
     uint8_t file_index = 0;
     while (file_index < 99 ){
         char temp_filename[32];
@@ -192,6 +207,7 @@ void getNextFilename(char *filename, char *calib_filename){
 }
 
 void logCalibData(const char *calib_filename, bmp280_calib_data_t *calib_data){
+    /* Logs BMP280 calibration data to specified CSV file */
     FILE *f = fopen(calib_filename, "w");
     if (f == NULL) return;
     fprintf(f, "%04hx,%04hx,%04hx\n", 

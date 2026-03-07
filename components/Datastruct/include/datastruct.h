@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 
+/* Structs for sensor data and calibration data */
 typedef struct __attribute__((packed)){
     uint32_t lognum;
     uint64_t time_us;

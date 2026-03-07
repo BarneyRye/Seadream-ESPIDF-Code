@@ -4,6 +4,10 @@
 #include "freertos/task.h"
 
 bool bmp280_checkID(i2c_master_dev_handle_t bmp280_handle) {
+    /*
+    Reads BMP280 ID
+    If matches expected value, returns true. Otherwise, returns false.
+    */
     uint8_t id;
     uint8_t id_reg = BMP280_ID_REG;
     i2c_master_transmit_receive(bmp280_handle, &id_reg, 1, &id, 1, -1);
@@ -11,6 +15,13 @@ bool bmp280_checkID(i2c_master_dev_handle_t bmp280_handle) {
 }
 
 void bmp280_config(i2c_master_dev_handle_t bmp280_handle) {
+    /*
+    Sets config for BMP280
+        - Normal mode
+        - Pressure and temperature oversampling x1
+        - Filter off
+        - Standby time 0.5 ms
+    */
     uint8_t ctrl_data[2] = {BMP280_CTRL_MEAS_REG, 
                            BMP280_CTRL_MEAS_MODE_NORMAL | BMP280_CTRL_MEAS_OSRS_P_X1 | BMP280_CTRL_MEAS_OSRS_T_X1};
     i2c_master_transmit(bmp280_handle, ctrl_data, 2, -1);
@@ -20,6 +31,10 @@ void bmp280_config(i2c_master_dev_handle_t bmp280_handle) {
 }
 
 void bmp280_getCalibData(i2c_master_dev_handle_t bmp280_handle, bmp280_calib_data_t* calib_data) {
+    /*
+    Reads calibration data from BMP280
+    Stores data in provided bmp280_calib_data_t struct pointer
+    */
     uint8_t reg = BMP280_CALIB00_REG;
     uint8_t buf[24];
     i2c_master_transmit_receive(bmp280_handle, &reg, 1, buf, 24, -1);
@@ -39,6 +54,13 @@ void bmp280_getCalibData(i2c_master_dev_handle_t bmp280_handle, bmp280_calib_dat
 }
 
 bool bmp280_init(i2c_master_dev_handle_t bmp280_handle, bmp280_calib_data_t* calib_data) {
+    /*
+    Initializes BMP280
+        - Resets device
+        - Configures settings
+        - Reads calibration data
+        - Checks device ID
+    */
     uint8_t reset_cmd[2] = {BMP280_RESET_REG, BMP280_RESET_VAL};
     i2c_master_transmit(bmp280_handle, reset_cmd, 2, -1);
     
@@ -51,6 +73,10 @@ bool bmp280_init(i2c_master_dev_handle_t bmp280_handle, bmp280_calib_data_t* cal
 }
 
 void bmp280_getEvent(i2c_master_dev_handle_t bmp280_handle, sensor_data_t* data) {
+    /*
+    Reads pressure and temperature data from BMP280
+    Stores data in provided sensor_data_t struct pointer
+    */
     uint8_t reg = BMP280_PRESS_MSB_REG;
     uint8_t raw[6];
     

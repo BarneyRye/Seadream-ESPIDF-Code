@@ -4,6 +4,10 @@
 #include "freertos/task.h"
 
 bool lsm6dso32_checkID(i2c_master_dev_handle_t lsm6dso32_handle) {
+    /*
+    Reads LSM6DSO32 ID
+    If matches expected value, returns true. Otherwise, returns false.
+    */
     uint8_t id;
     uint8_t id_reg = IMU_WHO_AM_I;
     i2c_master_transmit_receive(lsm6dso32_handle, &id_reg, 1, &id, 1, -1);
@@ -11,6 +15,13 @@ bool lsm6dso32_checkID(i2c_master_dev_handle_t lsm6dso32_handle) {
 }
 
 void lsm6dso32_config(i2c_master_dev_handle_t lsm6dso32_handle) {
+    /*
+    Sets config for LSM6DSO32
+        - Gyro ODR 3333 Hz, FS 2000 dps
+        - Accel ODR 3333 Hz, FS 32 g, LPF2 off
+        - BDU on, IF_INC on
+        - Timestamp enabled
+    */
     uint8_t ctrl1_xl[2] = {IMU_CTRL1_XL,
         IMU_CTRL1_LPF2_XL_EN_OFF | IMU_CTRL1_FS_XL_32g | IMU_CTRL1_ODR_XL_3333Hz
     };
@@ -28,6 +39,12 @@ void lsm6dso32_config(i2c_master_dev_handle_t lsm6dso32_handle) {
 }
 
 bool lsm6dso32_init(i2c_master_dev_handle_t lsm6dso32_handle) {
+    /*
+    Initializes LSM6DSO32
+        - Resets device
+        - Configures settings
+        - Checks device ID
+    */
     uint8_t reset_cmd[2] = {IMU_CTRL3_C, IMU_CTRL3_SW_RESET_ON};
     i2c_master_transmit(lsm6dso32_handle, reset_cmd, 2, -1);
     vTaskDelay(pdMS_TO_TICKS(100));
@@ -36,6 +53,11 @@ bool lsm6dso32_init(i2c_master_dev_handle_t lsm6dso32_handle) {
 }
 
 void lsm6dso32_getEvent(i2c_master_dev_handle_t lsm6dso32_handle, sensor_data_t* data) {
+    /*
+    Reads accelerometer and gyroscope data from LSM6DSO32
+    Stores data in provided sensor_data_t struct pointer
+    If read fails, sets accel and gyro data to 0
+    */
     uint8_t data_start_reg = IMU_OUTX_L_G;
     uint8_t raw_data[12];
     if (i2c_master_transmit_receive(lsm6dso32_handle, &data_start_reg, 1, raw_data, 12, 20) == ESP_OK) {
