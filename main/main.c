@@ -146,7 +146,7 @@ void i2c_init(){
     i2c_device_config_t bmp280_dev_config = {
         .dev_addr_length = I2C_ADDR_BIT_7,
         .device_address = BMP280_I2C_ADDR,
-        .scl_speed_hz = I2C_MASTER_FREQ_HZ,
+        .scl_speed_hz = 400000,
     };
     ESP_ERROR_CHECK(i2c_master_bus_add_device(bus_handle, &bmp280_dev_config, &bmp280_dev_handle));
 
