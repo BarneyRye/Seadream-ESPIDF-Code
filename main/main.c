@@ -22,7 +22,7 @@
 #define I2C_SDA_PIN 12
 #define I2C_SCL_PIN 13
 #define I2C_MASTER_NUM 0
-#define I2C_MASTER_FREQ_HZ 400000
+#define I2C_MASTER_FREQ_HZ 1000000
 
 /* SPI Defines */
 #define SD_MOUNT_POINT "/sdcard"
@@ -73,8 +73,8 @@ void app_main(void){
 
     sensor_queue = xQueueCreate(2, sizeof(sensor_data_t)*BUFFER_SIZE);
 
-    xTaskCreatePinnedToCore(sensor_task, "Sensor task", 4096, NULL, 1, NULL, 0);
-    xTaskCreatePinnedToCore(logging_task, "SD logging task", 4096, NULL, 1, NULL, 1);
+    xTaskCreatePinnedToCore(sensor_task, "Sensor task", 4096, NULL, 5, NULL, 0);
+    xTaskCreatePinnedToCore(logging_task, "SD logging task", 4096, NULL, 5, NULL, 1);
 }
 
 /* FreeRTOS Tasks */
@@ -84,12 +84,13 @@ void sensor_task(void *pvParameters){
     while(1){
         for (uint8_t i = 0; i<BUFFER_SIZE; i++) {
             lsm6dso32_getEvent(lsm6dso32_dev_handle, &sensor_buffer[i]);
-            if (i == 0 || i == 8) {
+            sensor_buffer[i].time_us = esp_timer_get_time();
+            if (i == 0) {
                 bmp280_getEvent(bmp280_dev_handle, &sensor_buffer[i]);
-                for (uint8_t j = 1; j < 8; j++) {
-                    sensor_buffer[i+j].pressure = sensor_buffer[i].pressure;
-                    sensor_buffer[i+j].temperature = sensor_buffer[i].temperature;
-                }
+            }
+            else {
+                sensor_buffer[i].pressure = sensor_buffer[0].pressure;
+                sensor_buffer[i].temperature = sensor_buffer[0].temperature;
             }
             sensor_buffer[i].lognum = lognum++;
         }
@@ -104,14 +105,14 @@ void logging_task(void *pvParameters){
         return;
     }
     static sensor_data_t logging_buffer[BUFFER_SIZE];
-    uint32_t sectors_written = 0;
+    uint32_t last_sync = xTaskGetTickCount();
 
     while (1) {
         if (xQueueReceive(sensor_queue, logging_buffer, portMAX_DELAY) == pdPASS) {
             fwrite(logging_buffer, sizeof(sensor_data_t), BUFFER_SIZE, f);
-            if (++sectors_written >= 20) {
+            if (xTaskGetTickCount() - last_sync >= pdMS_TO_TICKS(100)) {
                 fsync(fileno(f));
-                sectors_written = 0;
+                last_sync = xTaskGetTickCount();
             }
         }
     }
@@ -125,7 +126,7 @@ void i2c_init(){
         .sda_io_num = I2C_SDA_PIN,
         .scl_io_num = I2C_SCL_PIN,
         .glitch_ignore_cnt = 7,
-        .flags.enable_internal_pullup = false,
+        .flags.enable_internal_pullup = true,
     };
     ESP_ERROR_CHECK(i2c_new_master_bus(&i2c_config, &bus_handle));
     

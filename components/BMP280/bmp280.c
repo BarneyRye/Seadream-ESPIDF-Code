@@ -20,8 +20,22 @@ void bmp280_config(i2c_master_dev_handle_t bmp280_handle) {
 }
 
 void bmp280_getCalibData(i2c_master_dev_handle_t bmp280_handle, bmp280_calib_data_t* calib_data) {
-uint8_t reg = BMP280_CALIB00_REG;
-    i2c_master_transmit_receive(bmp280_handle, &reg, 1, (uint8_t*)calib_data, 24, -1);
+    uint8_t reg = BMP280_CALIB00_REG;
+    uint8_t buf[24];
+    i2c_master_transmit_receive(bmp280_handle, &reg, 1, buf, 24, -1);
+
+    calib_data->dig_T1 = (uint16_t)(buf[1] << 8 | buf[0]);
+    calib_data->dig_T2 = (int16_t)(buf[3] << 8 | buf[2]);
+    calib_data->dig_T3 = (int16_t)(buf[5] << 8 | buf[4]);
+    calib_data->dig_P1 = (uint16_t)(buf[7] << 8 | buf[6]);
+    calib_data->dig_P2 = (int16_t)(buf[9] << 8 | buf[8]);
+    calib_data->dig_P3 = (int16_t)(buf[11] << 8 | buf[10]);
+    calib_data->dig_P4 = (int16_t)(buf[13] << 8 | buf[12]);
+    calib_data->dig_P5 = (int16_t)(buf[15] << 8 | buf[14]);
+    calib_data->dig_P6 = (int16_t)(buf[17] << 8 | buf[16]);
+    calib_data->dig_P7 = (int16_t)(buf[19] << 8 | buf[18]);
+    calib_data->dig_P8 = (int16_t)(buf[21] << 8 | buf[20]);
+    calib_data->dig_P9 = (int16_t)(buf[23] << 8 | buf[22]);
 }
 
 bool bmp280_init(i2c_master_dev_handle_t bmp280_handle, bmp280_calib_data_t* calib_data) {
@@ -40,7 +54,7 @@ void bmp280_getEvent(i2c_master_dev_handle_t bmp280_handle, sensor_data_t* data)
     uint8_t reg = BMP280_PRESS_MSB_REG;
     uint8_t raw[6];
     
-    if (i2c_master_transmit_receive(bmp280_handle, &reg, 1, raw, 6, -1) == ESP_OK) {
+    if (i2c_master_transmit_receive(bmp280_handle, &reg, 1, raw, 6, 20) == ESP_OK) {
         data->pressure = (uint32_t)((raw[0] << 12) | (raw[1] << 4) | (raw[2] >> 4));
         data->temperature  = (uint32_t)((raw[3] << 12) | (raw[4] << 4) | (raw[5] >> 4));
     }
