@@ -22,7 +22,7 @@
 #define I2C_SDA_PIN 12
 #define I2C_SCL_PIN 13
 #define I2C_MASTER_NUM 0
-#define I2C_MASTER_FREQ_HZ 1000000
+#define I2C_MASTER_FREQ_HZ 400000
 
 /* SPI Defines */
 #define SD_MOUNT_POINT "/sdcard"
@@ -65,7 +65,11 @@ void app_main(void){
     /*
     Initializes I2C, SD card, sensors, and creates FreeRTOS tasks for sensor reading and SD logging
     Also stores BMP280 calibration data to SD card and gets next available filename for logging
+    Wait for a period to allow time to setup and launch rocket
     */
+
+    const uint32_t time_to_pad = 30; //mins
+    
     i2c_init();
 
     bmp280_init(bus_handle, &bmp280_dev_handle, &bmp280_calib_data);
@@ -75,6 +79,8 @@ void app_main(void){
     char calib_filename[32];
     getNextFilename(filename, calib_filename);
     logCalibData(calib_filename, &bmp280_calib_data);
+
+    vTaskDelay(pdMS_TO_TICKS(time_to_pad * 60 * 1000));
 
     sensor_queue = xQueueCreate(2, sizeof(sensor_data_t)*BUFFER_SIZE);
 
@@ -87,9 +93,12 @@ void sensor_task(void *pvParameters){
     /*
     Sensor task to read data and send over queue
     Also handles BMP280 data reading for the first buffer element
+    Set lograte to 1kHz
     */
+    const uint32_t log_interval_ms = 1;
     uint32_t lognum = 0;
     static sensor_data_t sensor_buffer[BUFFER_SIZE];
+    TickType_t last_wake_time = xTaskGetTickCount();
     while(1){
         for (uint8_t i = 0; i<BUFFER_SIZE; i++) {
             lsm6dso32_getEvent(lsm6dso32_dev_handle, &sensor_buffer[i]);
@@ -104,6 +113,7 @@ void sensor_task(void *pvParameters){
             sensor_buffer[i].lognum = lognum++;
         }
         xQueueSend(sensor_queue, sensor_buffer, portMAX_DELAY);
+        vTaskDelayUntil(&last_wake_time, pdMS_TO_TICKS(log_interval_ms));
     }
 }
 
@@ -142,21 +152,21 @@ void i2c_init(){
         .glitch_ignore_cnt = 7,
         .flags.enable_internal_pullup = true,
     };
-    ESP_ERROR_CHECK(i2c_new_master_bus(&i2c_config, &bus_handle));
+    i2c_new_master_bus(&i2c_config, &bus_handle);
     
     i2c_device_config_t bmp280_dev_config = {
         .dev_addr_length = I2C_ADDR_BIT_7,
         .device_address = BMP280_I2C_ADDR_PWR,
-        .scl_speed_hz = 400000,
+        .scl_speed_hz = I2C_MASTER_FREQ_HZ,
     };
-    ESP_ERROR_CHECK(i2c_master_bus_add_device(bus_handle, &bmp280_dev_config, &bmp280_dev_handle));
+    i2c_master_bus_add_device(bus_handle, &bmp280_dev_config, &bmp280_dev_handle);
 
     i2c_device_config_t lsm6dso32_dev_config = {
         .dev_addr_length = I2C_ADDR_BIT_7,
         .device_address = LSM6DSO32_I2C_ADDR,
         .scl_speed_hz = I2C_MASTER_FREQ_HZ,
     };
-    ESP_ERROR_CHECK(i2c_master_bus_add_device(bus_handle, &lsm6dso32_dev_config, &lsm6dso32_dev_handle));
+    i2c_master_bus_add_device(bus_handle, &lsm6dso32_dev_config, &lsm6dso32_dev_handle);
 }
 
 void sd_card_init(){

@@ -17,16 +17,16 @@ bool lsm6dso32_checkID(i2c_master_dev_handle_t lsm6dso32_handle) {
 void lsm6dso32_config(i2c_master_dev_handle_t lsm6dso32_handle) {
     /*
     Sets config for LSM6DSO32
-        - Gyro ODR 3333 Hz, FS 2000 dps
-        - Accel ODR 3333 Hz, FS 32 g, LPF2 off
+        - Gyro ODR 1667 Hz, FS 2000 dps
+        - Accel ODR 1667 Hz, FS 32 g, LPF2 off
         - BDU on, IF_INC on
         - Timestamp enabled
     */
     uint8_t ctrl1_xl[2] = {IMU_CTRL1_XL,
-        IMU_CTRL1_LPF2_XL_EN_OFF | IMU_CTRL1_FS_XL_32g | IMU_CTRL1_ODR_XL_3333Hz
+        IMU_CTRL1_LPF2_XL_EN_OFF | IMU_CTRL1_FS_XL_32g | IMU_CTRL1_ODR_XL_1667Hz
     };
     uint8_t ctrl2_g[2] = {IMU_CTRL2_G,
-        IMU_CTRL2_FS_125_OFF | IMU_CTRL2_FS_G_2000dps | IMU_CTRL2_ODR_G_3333Hz
+        IMU_CTRL2_FS_125_OFF | IMU_CTRL2_FS_G_2000dps | IMU_CTRL2_ODR_G_1667Hz
     };
     uint8_t ctrl3_c[2] = {IMU_CTRL3_C,
         IMU_CTRL3_BDU_ON | IMU_CTRL3_IF_INC_ON
