@@ -32,7 +32,8 @@
 #define SPI_CS_PIN 4
 
 /* I2C device addresses*/
-#define BMP280_I2C_ADDR 0x77
+#define BMP280_I2C_ADDR_PWR 0x77
+#define BMP280_I2C_ADDR_GND 0x76
 #define LSM6DSO32_I2C_ADDR 0x6A
 
 /* I2C Handles */
@@ -67,7 +68,7 @@ void app_main(void){
     */
     i2c_init();
 
-    bmp280_init(bmp280_dev_handle, &bmp280_calib_data);
+    bmp280_init(bus_handle, &bmp280_dev_handle, &bmp280_calib_data);
     lsm6dso32_init(lsm6dso32_dev_handle);
 
     sd_card_init();
@@ -145,7 +146,7 @@ void i2c_init(){
     
     i2c_device_config_t bmp280_dev_config = {
         .dev_addr_length = I2C_ADDR_BIT_7,
-        .device_address = BMP280_I2C_ADDR,
+        .device_address = BMP280_I2C_ADDR_PWR,
         .scl_speed_hz = 400000,
     };
     ESP_ERROR_CHECK(i2c_master_bus_add_device(bus_handle, &bmp280_dev_config, &bmp280_dev_handle));
