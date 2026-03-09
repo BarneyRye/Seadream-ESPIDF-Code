@@ -67,8 +67,8 @@ void app_main(void){
     Also stores BMP280 calibration data to SD card and gets next available filename for logging
     Wait for a period to allow time to setup and launch rocket
     */
-
     const uint32_t time_to_pad = 30; //mins
+    //vTaskDelay(pdMS_TO_TICKS(time_to_pad * 60 * 1000));
     
     i2c_init();
 
@@ -80,7 +80,7 @@ void app_main(void){
     getNextFilename(filename, calib_filename);
     logCalibData(calib_filename, &bmp280_calib_data);
 
-    //vTaskDelay(pdMS_TO_TICKS(time_to_pad * 60 * 1000));
+
 
     sensor_queue = xQueueCreate(2, sizeof(sensor_data_t)*BUFFER_SIZE);
 
