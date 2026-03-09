@@ -6,6 +6,8 @@
 #define BMP280_I2C_ADDR_PWR 0x77
 #define BMP280_I2C_ADDR_GND 0x76
 
+bool bmp280_addr;
+
 bool bmp280_checkID(i2c_master_dev_handle_t bmp280_handle) {
     /*
     Reads BMP280 ID
@@ -56,12 +58,37 @@ void bmp280_getCalibData(i2c_master_dev_handle_t bmp280_handle, bmp280_calib_dat
     calib_data->dig_P9 = (int16_t)(buf[23] << 8 | buf[22]);
 }
 
+void check_bmp_address(i2c_master_bus_handle_t bus_handle, i2c_master_dev_handle_t *bmp280_handle) {
+    if (bmp280_checkID(*bmp280_handle)) {
+        return;
+    }
+    if (bmp280_addr) {
+        i2c_master_bus_rm_device(*bmp280_handle);
+        i2c_device_config_t bmp280_dev_config = {
+            .dev_addr_length = I2C_ADDR_BIT_LEN_7,
+            .device_address = BMP280_I2C_ADDR_PWR,
+            .scl_speed_hz = 400000,
+        };
+        i2c_master_bus_add_device(bus_handle, &bmp280_dev_config, bmp280_handle);
+    }
+    else {
+        i2c_master_bus_rm_device(*bmp280_handle);
+        i2c_device_config_t bmp280_dev_config = {
+            .dev_addr_length = I2C_ADDR_BIT_LEN_7,
+            .device_address = BMP280_I2C_ADDR_GND,
+            .scl_speed_hz = 400000,
+        };
+        i2c_master_bus_add_device(bus_handle, &bmp280_dev_config, bmp280_handle);
+    }
+}
+
 bool bmp280_init(i2c_master_bus_handle_t bus_handle, i2c_master_dev_handle_t *bmp280_handle, bmp280_calib_data_t *calib_data) {
     /*
     BMP280 initialization function
     Tries to find BMP280 on both possible I2C addresses. If found, configures device and reads calibration data.
     Returns true if device found and initialized successfully, false otherwise.
     */
+    bmp280_addr = false;
     uint8_t reset_cmd[2] = {BMP280_RESET_REG, BMP280_RESET_VAL};
     i2c_master_transmit(*bmp280_handle, reset_cmd, 2, -1);
     vTaskDelay(pdMS_TO_TICKS(100));
@@ -79,14 +106,19 @@ bool bmp280_init(i2c_master_bus_handle_t bus_handle, i2c_master_dev_handle_t *bm
 
         i2c_master_transmit(*bmp280_handle, reset_cmd, 2, -1);
         vTaskDelay(pdMS_TO_TICKS(100));
+        bmp280_addr = true;
     }
     if (bmp280_checkID(*bmp280_handle)) {
         bmp280_config(*bmp280_handle);
         bmp280_getCalibData(*bmp280_handle, calib_data);
-        return true;
     }
-
-    return false; // Not found on either address
+    if (bmp280_addr) {
+        calib_data->address = BMP280_I2C_ADDR_GND;
+    }
+    else {
+        calib_data->address = BMP280_I2C_ADDR_PWR;
+    }
+    return bmp280_checkID(*bmp280_handle);
 }
 
 void bmp280_getEvent(i2c_master_dev_handle_t bmp280_handle, sensor_data_t* data) {

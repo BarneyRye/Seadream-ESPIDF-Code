@@ -80,7 +80,7 @@ void app_main(void){
     getNextFilename(filename, calib_filename);
     logCalibData(calib_filename, &bmp280_calib_data);
 
-    vTaskDelay(pdMS_TO_TICKS(time_to_pad * 60 * 1000));
+    //vTaskDelay(pdMS_TO_TICKS(time_to_pad * 60 * 1000));
 
     sensor_queue = xQueueCreate(2, sizeof(sensor_data_t)*BUFFER_SIZE);
 
@@ -113,6 +113,9 @@ void sensor_task(void *pvParameters){
             sensor_buffer[i].lognum = lognum++;
         }
         xQueueSend(sensor_queue, sensor_buffer, portMAX_DELAY);
+        if (lognum % 100 == 0) {
+            check_bmp_address(bus_handle, &bmp280_dev_handle);
+        }
         vTaskDelayUntil(&last_wake_time, pdMS_TO_TICKS(log_interval_ms));
     }
 }
@@ -224,10 +227,11 @@ void logCalibData(const char *calib_filename, bmp280_calib_data_t *calib_data){
     fprintf(f, "%04hx,%04hx,%04hx\n", 
             calib_data->dig_T1, calib_data->dig_T2, calib_data->dig_T3);
             
-    fprintf(f, "%04hx,%04hx,%04hx,%04hx,%04hx,%04hx,%04hx,%04hx,%04hx\n",
+    fprintf(f, "%04hx,%04hx,%04hx,%04hx,%04hx,%04hx,%04hx,%04hx,%04hx,%02hx\n",
             calib_data->dig_P1, calib_data->dig_P2, calib_data->dig_P3,
             calib_data->dig_P4, calib_data->dig_P5, calib_data->dig_P6,
-            calib_data->dig_P7, calib_data->dig_P8, calib_data->dig_P9);
+            calib_data->dig_P7, calib_data->dig_P8, calib_data->dig_P9,
+            calib_data->address);
     
     fclose(f);
 }

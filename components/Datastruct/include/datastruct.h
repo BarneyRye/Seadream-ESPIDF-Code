@@ -30,6 +30,7 @@ typedef struct __attribute__((packed)){
     int16_t dig_P7;
     int16_t dig_P8;
     int16_t dig_P9;
+    uint8_t address;
 } bmp280_calib_data_t;
 
 #endif /* DATASTRUCT_H_ */
