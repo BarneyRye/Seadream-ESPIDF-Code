@@ -104,7 +104,7 @@ void sensor_task(void *pvParameters){
     Also handles BMP280 data reading for the first buffer element
     Set lograte to 1kHz
     */
-    const uint32_t log_interval_ms = 1;
+    const float log_interval_ms = (1000.0f/400.0f);
     TickType_t log_interval_ticks = pdMS_TO_TICKS(log_interval_ms);
     if (log_interval_ticks == 0) {
         log_interval_ticks = 1;
