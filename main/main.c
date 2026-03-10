@@ -72,17 +72,26 @@ void app_main(void){
     
     i2c_init();
 
-    bmp280_init(bus_handle, &bmp280_dev_handle, &bmp280_calib_data);
-    lsm6dso32_init(lsm6dso32_dev_handle);
+    if (!bmp280_init(bus_handle, &bmp280_dev_handle, &bmp280_calib_data)) {
+        printf("BMP280 init failed\n");
+    }
+    if (!lsm6dso32_init(lsm6dso32_dev_handle)) {
+        printf("LSM6DSO32 init failed\n");
+    }
 
     sd_card_init();
     char calib_filename[32];
     getNextFilename(filename, calib_filename);
     logCalibData(calib_filename, &bmp280_calib_data);
-
-
+    printf("BMP280 calib data read: T1=%u T2=%d T3=%d P1=%u P2=%d P3=%d P4=%d P5=%d P6=%d P7=%d P8=%d P9=%d ADDR=%02x\n",
+        bmp280_calib_data.dig_T1, bmp280_calib_data.dig_T2, bmp280_calib_data.dig_T3, bmp280_calib_data.dig_P1, bmp280_calib_data.dig_P2, bmp280_calib_data.dig_P3,
+        bmp280_calib_data.dig_P4, bmp280_calib_data.dig_P5, bmp280_calib_data.dig_P6, bmp280_calib_data.dig_P7, bmp280_calib_data.dig_P8, bmp280_calib_data.dig_P9, bmp280_calib_data.address);
 
     sensor_queue = xQueueCreate(2, sizeof(sensor_data_t)*BUFFER_SIZE);
+    if (sensor_queue == NULL) {
+        printf("Failed to create sensor queue\n");
+        return;
+    }
 
     xTaskCreatePinnedToCore(sensor_task, "Sensor task", 4096, NULL, 5, NULL, 0);
     xTaskCreatePinnedToCore(logging_task, "SD logging task", 4096, NULL, 5, NULL, 1);
@@ -96,7 +105,12 @@ void sensor_task(void *pvParameters){
     Set lograte to 1kHz
     */
     const uint32_t log_interval_ms = 1;
+    TickType_t log_interval_ticks = pdMS_TO_TICKS(log_interval_ms);
+    if (log_interval_ticks == 0) {
+        log_interval_ticks = 1;
+    }
     uint32_t lognum = 0;
+    uint32_t bmp_check_counter = 0;
     static sensor_data_t sensor_buffer[BUFFER_SIZE];
     TickType_t last_wake_time = xTaskGetTickCount();
     while(1){
@@ -112,11 +126,13 @@ void sensor_task(void *pvParameters){
             }
             sensor_buffer[i].lognum = lognum++;
         }
-        xQueueSend(sensor_queue, sensor_buffer, portMAX_DELAY);
-        if (lognum % 100 == 0) {
-            check_bmp_address(bus_handle, &bmp280_dev_handle);
+        if (xQueueSend(sensor_queue, sensor_buffer, pdMS_TO_TICKS(20)) == pdPASS) {
+            if (++bmp_check_counter >= 1000) {
+                check_bmp_address(bus_handle, &bmp280_dev_handle);
+                bmp_check_counter = 0;
+            }
         }
-        vTaskDelayUntil(&last_wake_time, pdMS_TO_TICKS(log_interval_ms));
+        vTaskDelayUntil(&last_wake_time, log_interval_ticks);
     }
 }
 
@@ -127,15 +143,20 @@ void logging_task(void *pvParameters){
     */
     FILE *f = fopen(filename, "wb");
     if (f == NULL) {
+        printf("Failed to open log file %s\n", filename);
         vTaskDelete(NULL);
         return;
     }
+    printf("Logging started: %s\n", filename);
     static sensor_data_t logging_buffer[BUFFER_SIZE];
     uint32_t last_sync = xTaskGetTickCount();
 
     while (1) {
         if (xQueueReceive(sensor_queue, logging_buffer, portMAX_DELAY) == pdPASS) {
-            fwrite(logging_buffer, sizeof(sensor_data_t), BUFFER_SIZE, f);
+            size_t written = fwrite(logging_buffer, sizeof(sensor_data_t), BUFFER_SIZE, f);
+            if (written != BUFFER_SIZE) {
+                printf("fwrite failed: wrote=%u expected=%u\n", (unsigned)written, (unsigned)BUFFER_SIZE);
+            }
             if (xTaskGetTickCount() - last_sync >= pdMS_TO_TICKS(100)) {
                 fsync(fileno(f));
                 last_sync = xTaskGetTickCount();

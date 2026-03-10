@@ -3,6 +3,8 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
+#define LSM6DSO32_I2C_TIMEOUT_MS 50
+
 bool lsm6dso32_checkID(i2c_master_dev_handle_t lsm6dso32_handle) {
     /*
     Reads LSM6DSO32 ID
@@ -10,7 +12,9 @@ bool lsm6dso32_checkID(i2c_master_dev_handle_t lsm6dso32_handle) {
     */
     uint8_t id;
     uint8_t id_reg = IMU_WHO_AM_I;
-    i2c_master_transmit_receive(lsm6dso32_handle, &id_reg, 1, &id, 1, -1);
+    if (i2c_master_transmit_receive(lsm6dso32_handle, &id_reg, 1, &id, 1, LSM6DSO32_I2C_TIMEOUT_MS) != ESP_OK) {
+        return false;
+    }
     return (id == IMU_WHO_AM_I_ID);
 }
 
@@ -32,10 +36,10 @@ void lsm6dso32_config(i2c_master_dev_handle_t lsm6dso32_handle) {
         IMU_CTRL3_BDU_ON | IMU_CTRL3_IF_INC_ON
     };
     uint8_t ctrl10_c[2] = {IMU_CTRL10_C,IMU_TIMESTAMP_EN_ON};
-    i2c_master_transmit(lsm6dso32_handle, ctrl1_xl, 2, -1);
-    i2c_master_transmit(lsm6dso32_handle, ctrl2_g, 2, -1);
-    i2c_master_transmit(lsm6dso32_handle, ctrl3_c, 2, -1);
-    i2c_master_transmit(lsm6dso32_handle, ctrl10_c, 2, -1);
+    i2c_master_transmit(lsm6dso32_handle, ctrl1_xl, 2, LSM6DSO32_I2C_TIMEOUT_MS);
+    i2c_master_transmit(lsm6dso32_handle, ctrl2_g, 2, LSM6DSO32_I2C_TIMEOUT_MS);
+    i2c_master_transmit(lsm6dso32_handle, ctrl3_c, 2, LSM6DSO32_I2C_TIMEOUT_MS);
+    i2c_master_transmit(lsm6dso32_handle, ctrl10_c, 2, LSM6DSO32_I2C_TIMEOUT_MS);
 }
 
 bool lsm6dso32_init(i2c_master_dev_handle_t lsm6dso32_handle) {
@@ -46,7 +50,7 @@ bool lsm6dso32_init(i2c_master_dev_handle_t lsm6dso32_handle) {
         - Checks device ID
     */
     uint8_t reset_cmd[2] = {IMU_CTRL3_C, IMU_CTRL3_SW_RESET_ON};
-    i2c_master_transmit(lsm6dso32_handle, reset_cmd, 2, -1);
+    i2c_master_transmit(lsm6dso32_handle, reset_cmd, 2, LSM6DSO32_I2C_TIMEOUT_MS);
     vTaskDelay(pdMS_TO_TICKS(100));
     lsm6dso32_config(lsm6dso32_handle);
     return lsm6dso32_checkID(lsm6dso32_handle);

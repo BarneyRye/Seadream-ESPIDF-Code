@@ -2,6 +2,9 @@
 #include "bmp280_reg.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include <string.h>
+
+#define BMP280_I2C_TIMEOUT_MS 50
 
 #define BMP280_I2C_ADDR_PWR 0x77
 #define BMP280_I2C_ADDR_GND 0x76
@@ -15,7 +18,9 @@ bool bmp280_checkID(i2c_master_dev_handle_t bmp280_handle) {
     */
     uint8_t id;
     uint8_t id_reg = BMP280_ID_REG;
-    i2c_master_transmit_receive(bmp280_handle, &id_reg, 1, &id, 1, -1);
+    if (i2c_master_transmit_receive(bmp280_handle, &id_reg, 1, &id, 1, BMP280_I2C_TIMEOUT_MS) != ESP_OK) {
+        return false;
+    }
     return (id == BMP280_ID);
 }
 
@@ -29,10 +34,10 @@ void bmp280_config(i2c_master_dev_handle_t bmp280_handle) {
     */
     uint8_t ctrl_data[2] = {BMP280_CTRL_MEAS_REG, 
                            BMP280_CTRL_MEAS_MODE_NORMAL | BMP280_CTRL_MEAS_OSRS_P_X1 | BMP280_CTRL_MEAS_OSRS_T_X1};
-    i2c_master_transmit(bmp280_handle, ctrl_data, 2, -1);
+    i2c_master_transmit(bmp280_handle, ctrl_data, 2, BMP280_I2C_TIMEOUT_MS);
     uint8_t conf_data[2] = {BMP280_CONFIG_REG, 
                            BMP280_CONFIG_FILTER_OFF | BMP280_CONFIG_STANDBY_0_5_MS};
-    i2c_master_transmit(bmp280_handle, conf_data, 2, -1); 
+    i2c_master_transmit(bmp280_handle, conf_data, 2, BMP280_I2C_TIMEOUT_MS); 
 }
 
 void bmp280_getCalibData(i2c_master_dev_handle_t bmp280_handle, bmp280_calib_data_t* calib_data) {
@@ -42,7 +47,10 @@ void bmp280_getCalibData(i2c_master_dev_handle_t bmp280_handle, bmp280_calib_dat
     */
     uint8_t reg = BMP280_CALIB00_REG;
     uint8_t buf[24];
-    i2c_master_transmit_receive(bmp280_handle, &reg, 1, buf, 24, -1);
+    if (i2c_master_transmit_receive(bmp280_handle, &reg, 1, buf, 24, BMP280_I2C_TIMEOUT_MS) != ESP_OK) {
+        memset(calib_data, 0, sizeof(*calib_data));
+        return;
+    }
 
     calib_data->dig_T1 = (uint16_t)(buf[1] << 8 | buf[0]);
     calib_data->dig_T2 = (int16_t)(buf[3] << 8 | buf[2]);
@@ -90,7 +98,7 @@ bool bmp280_init(i2c_master_bus_handle_t bus_handle, i2c_master_dev_handle_t *bm
     */
     bmp280_addr = false;
     uint8_t reset_cmd[2] = {BMP280_RESET_REG, BMP280_RESET_VAL};
-    i2c_master_transmit(*bmp280_handle, reset_cmd, 2, -1);
+    i2c_master_transmit(*bmp280_handle, reset_cmd, 2, BMP280_I2C_TIMEOUT_MS);
     vTaskDelay(pdMS_TO_TICKS(100));
 
     if (!bmp280_checkID(*bmp280_handle)) {
@@ -104,7 +112,7 @@ bool bmp280_init(i2c_master_bus_handle_t bus_handle, i2c_master_dev_handle_t *bm
 
         i2c_master_bus_add_device(bus_handle, &bmp280_dev_config, bmp280_handle);
 
-        i2c_master_transmit(*bmp280_handle, reset_cmd, 2, -1);
+        i2c_master_transmit(*bmp280_handle, reset_cmd, 2, BMP280_I2C_TIMEOUT_MS);
         vTaskDelay(pdMS_TO_TICKS(100));
         bmp280_addr = true;
     }
